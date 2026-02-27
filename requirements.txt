@@ -1,0 +1,7 @@
+langchain
+python-dotenv
+langgraph
+langchain-google-genai
+google-generativeai
+psycopg2-binary
+langgraph-cli[inmem]
