@@ -16,7 +16,7 @@ class SQLAgent:
             password=os.getenv("DB_PASSWORD", "password"),
             database=os.getenv("DB_NAME", "text2sql"))
 #     )
-        self.llm_manager = LLMManager(api_key=os.getenv("GOOGLE_API_KEY","AIzaSyDGFPpV78hKaVll3JQYdaEMzH8OaQPAzak"),model="gemini-2.5-flash")        
+        self.llm_manager = LLMManager(api_key=os.getenv("GOOGLE_API_KEY",""),model="gemini-2.5-flash")        
         self.schema_name = schema_name
         
     def parsed_question(self, state: OutputState) -> dict:
