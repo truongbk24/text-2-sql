@@ -35,10 +35,16 @@ cd text-2-sql/
 docker compose up -d
 langgraph dev # to run the langsmit studio
 ```
+
+## Example
+Question 1: what is the total product number per price bucket for each 500?
+![Question 1](./images/question_1.png)
+
+Question 2: what is the product that has been purchased the most?
+![Question 2](./images/question_2.png)
+
+
 Tear down
 ```bash
 docker compose down -v
 ```
-
-## Example
-![Question 1: what is the total product number per price bucket for each 500](./images/question_1.png)
