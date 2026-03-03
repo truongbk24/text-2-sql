@@ -2,7 +2,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
 from agent.DatabaseManager import DatabaseManager
 from agent.LLMManager import LLMManager
-from agent.State import InputState, OutputState
+from agent.State import  AgentState
 from dotenv import load_dotenv
 import os
 load_dotenv()
@@ -19,7 +19,7 @@ class SQLAgent:
         self.llm_manager = LLMManager(api_key=os.getenv("GOOGLE_API_KEY",""),model="gemini-2.5-flash")        
         self.schema_name = schema_name
         
-    def parsed_question(self, state: OutputState) -> dict:
+    def parsed_question(self, state: AgentState) :
         question = state["question"]
         schema = self.db_manager.get_schema(self.schema_name)
         prompt = ChatPromptTemplate.from_messages([
@@ -49,10 +49,11 @@ class SQLAgent:
         ])
         output_parser = JsonOutputParser()
         response = self.llm_manager.invoke(prompt,schema=schema, question=question)
-        parsed_response = output_parser.parse(response)        
-        return {"parsed_question": parsed_response}
+        parsed_response = output_parser.parse(response)   
+        state["parsed_question"] = parsed_response
+        return state
     
-    def generate_sql(self, state: OutputState) -> dict:
+    def generate_sql(self, state: AgentState) :
         question = state['question']
         parsed_question = state['parsed_question']
         if not parsed_question['is_relevant']:
@@ -77,14 +78,17 @@ class SQLAgent:
         ])
         response = self.llm_manager.invoke(prompt, schema=schema, parsed_question=parsed_question, question=question)
         if response.strip() == "NOT_ENOUGH_INFO":
-            return {"sql_query": "NOT_RELEVANT"}
+            state["sql_query"] = "NOT_RELEVANT"
         else:
-            return {"sql_query": response}
+            state["sql_query"] = response
+        return state
         
-    def validate_and_fix_sql(self, state: OutputState) -> dict:
+    def validate_and_fix_sql(self, state: AgentState) :
         sql_query = state['sql_query']
         if sql_query in ["NOT_RELEVANT"]:
-            return {"sql_valid": False, "sql_query": "NOT_RELEVANT"}
+            state["sql_valid"] = False
+            state["sql_query"] = "NOT_RELEVANT"
+            return state
         schema = self.db_manager.get_schema(self.schema_name)
         prompt = ChatPromptTemplate.from_messages([
             ("system", '''
@@ -133,18 +137,17 @@ class SQLAgent:
         output_parser = JsonOutputParser()
         response = self.llm_manager.invoke(prompt, schema=schema, sql_query=sql_query)
         result = output_parser.parse(response)
-
+        state["attempts"] += 1
         if result["valid"] and result["issues"] is None:
-            return {"sql_query": sql_query, "sql_valid": True}
+            state["sql_query"] = sql_query
+            state["sql_valid"] = True
         else:
-            print(result["corrected_query"])
-            return {
-                "sql_query": result["corrected_query"],
-                "sql_valid": result["valid"],
-                "sql_issues": result["issues"]
-            }
-            
-    def execute_sql(self, state: OutputState) -> dict:
+            state["sql_query"] = result["corrected_query"]
+            state["sql_valid"] = False
+            state["sql_issues"] = result["issues"]
+        return state
+    
+    def execute_sql(self, state: AgentState) -> dict:
         """Execute the SQL query and return results."""
         query = state['sql_query']
         if query in ["NOT_RELEVANT"]:
@@ -155,10 +158,11 @@ class SQLAgent:
         except Exception as e:
             return {"results": f"ERROR: {str(e)}"}
         
-    def format_results(self, state: OutputState) -> dict:
+    def format_results(self, state: AgentState) -> dict:
         """Format the results into a user-friendly answer."""
         question = state['question']
         results = state['results']
+        print("Results to format:", results)
         if results in ["NOT_RELEVANT"]:
             return {"answer": "The question is not relevant to the database."}
         prompt = ChatPromptTemplate.from_messages([
@@ -167,3 +171,14 @@ class SQLAgent:
         ])
         response = self.llm_manager.invoke(prompt, question=question, results=results)
         return {"answer": response}
+    
+
+    def end_max_iterations(self, state: AgentState) :
+        state["answer"] = "I couldn't generate a valid SQL query after multiple attempts. Please try rephrasing your question."
+        return state
+    
+    def check_attempts_router(self, state: AgentState) :
+        if state["attempts"] < 3:
+            return "validate_and_fix_sql"
+        else:
+            return "end_max_iterations"

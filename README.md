@@ -3,14 +3,15 @@ This project is for demo of using LLM to create the agent application. The purpo
 
 ## Overview of the Agent
 
-![overview](./images/agent_overview.png)
+![overview](./images/agent_overview_new.png)
 
 Here is the steps for SQL agent execution:
 
 1. **`Parse Question`**: Regarding to the input question, ask the LLM the question is relevant to the database or not?
 2. **`Generate SQL`**: If the question is relevant to the database, generate the SQL query for preparing using LLM within the schema getting from the database itself
-3. **`Validate and fix SQL`**: The SQL returned might be incorrect to run, using LLM to validate it and fix if found the error
-4. **`Execute SQL`**: Using the fixed SQL was returned from the LLM, run the SQL to get the data from the local database
+3. **`Execute SQL`**: Using the fixed SQL was returned from the LLM, run the SQL to get the data from the local database
+4. **`Validate and fix SQL`**: The SQL returned might be incorrect to run, using LLM to validate it and fix if found the error. Try to fix at most 3 attempts
+5. **`End max iteration`**: If attepmting to fix more than 3 times, return the results that we could not generate the proper SQL query
 5. **`Format the result`**: Instead of only sending the data which is returned from the database, format the result in human-readable format
 
 ## Setup
